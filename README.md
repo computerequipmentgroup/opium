@@ -8,6 +8,8 @@
   <strong>Load balancer for your Claude Pro/Max subscription accounts.</strong>
   <br>
   <sub>Manage multiple personal accounts to maximize your included usage allowance.</sub>
+  <br>
+  <sub>Works with <a href="https://opencode.ai">OpenCode</a> and other tools that support custom API endpoints.</sub>
 </p>
 
 <p align="center">
