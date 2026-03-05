@@ -46,7 +46,7 @@ pub async fn test_server_connection(url: String, api_key: String) -> CmdResult<S
 
     // Get user info to verify API key
     let user_info = client.get_user_info().await.map_err(|e| e.to_string())?;
-    Ok(user_info.email)
+    Ok(user_info.username)
 }
 
 /// Get pool members from server

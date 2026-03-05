@@ -38,19 +38,25 @@ docker-compose logs -f
 
 ### Authentication
 
-All endpoints (except register) require an API key in the `Authorization` header:
+All endpoints (except `/health`) require authentication.
 
+**User API Key** (for most endpoints):
 ```
 Authorization: Bearer op_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
+**Admin API Key** (for user registration only):
+```
+Authorization: Bearer <ADMIN_API_KEY>
+```
+
 ### User Management
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/users/register` | Create API key |
-| GET | `/api/v1/users/me` | Get current user info |
-| POST | `/api/v1/users/me/regenerate-key` | Generate new API key |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/v1/users/register` | Admin | Create user with API key |
+| GET | `/api/v1/users/me` | User | Get current user info |
+| POST | `/api/v1/users/me/regenerate-key` | User | Generate new API key |
 
 ### Account Management
 
@@ -83,11 +89,12 @@ Authorization: Bearer op_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 ## Usage Flow
 
-1. **Create API Key**: Generate an API key to authenticate with the proxy
+1. **Create API Key**: Generate an API key to authenticate with the proxy (requires admin key)
    ```bash
    curl -X POST http://localhost:8082/api/v1/users/register \
      -H "Content-Type: application/json" \
-     -d '{"email": "you@example.com"}'
+     -H "Authorization: Bearer <ADMIN_API_KEY>" \
+     -d '{"username": "alice"}'
    ```
 
 2. **Link Account**: Start OAuth to link your Anthropic account
@@ -136,6 +143,7 @@ Environment variables:
 | `NODE_ENV` | development | Environment |
 | `DATABASE_PATH` | ./data/opium.db | SQLite database path |
 | `ENCRYPTION_KEY` | (required) | 32-char key for token encryption |
+| `ADMIN_API_KEY` | (required) | Admin key for user registration |
 | `API_KEY_SALT_ROUNDS` | 12 | bcrypt salt rounds |
 | `LOG_LEVEL` | info | Logging level |
 | `ENABLE_REQUEST_LOGGING` | false | Log all requests |

@@ -23,7 +23,7 @@ impl ServerConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PoolMember {
     pub id: String,
-    pub email: String,
+    pub username: String,
     pub is_active: bool,
     pub share_limit_percent: i32,
     pub usage: Option<ServerUsageStats>,
@@ -64,7 +64,7 @@ pub struct PoolResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerUserInfo {
     pub id: String,
-    pub email: String,
+    pub username: String,
     pub created_at: String,
     pub has_account: bool,
     pub account: Option<ServerAccountInfo>,

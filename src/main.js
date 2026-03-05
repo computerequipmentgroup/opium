@@ -238,7 +238,7 @@ function renderPool() {
         <h3>My Settings</h3>
         <div class="account-card my-account settings-card">
           <div class="account-header">
-            <span class="account-name">${escapeHtml(myAccount.email)}</span>
+            <span class="account-name">${escapeHtml(myAccount.username)}</span>
             <div class="account-badges">
               ${myAccount.is_active ? '<span class="account-status active">In Pool</span>' : '<span class="account-status disabled">Not in Pool</span>'}
             </div>
@@ -290,7 +290,7 @@ function renderPool() {
     html += `
       <div class="pool-item ${statusClass} ${member.is_me ? 'is-me' : ''} ${member.is_next ? 'is-next' : ''}">
         <div class="pool-item-info">
-          <span class="pool-item-email">${escapeHtml(member.email)}</span>
+          <span class="pool-item-username">${escapeHtml(member.username)}</span>
           ${isExhausted ? '<span class="pool-item-limit limited">Exhausted</span>' : isLimited ? '<span class="pool-item-limit limited">Limited</span>' : `<span class="pool-item-limit">${member.share_limit_percent}%</span>`}
 
           ${!member.is_active ? '<span class="pool-item-status">Inactive</span>' : ''}
@@ -457,8 +457,8 @@ async function testServerConnection() {
   statusEl.className = "";
   
   try {
-    const email = await invoke("test_server_connection", { url, apiKey });
-    statusEl.textContent = `Connected as ${email}`;
+    const username = await invoke("test_server_connection", { url, apiKey });
+    statusEl.textContent = `Connected as ${username}`;
     statusEl.className = "success";
   } catch (e) {
     statusEl.textContent = `Failed: ${e}`;
