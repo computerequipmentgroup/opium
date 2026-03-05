@@ -283,16 +283,17 @@ function renderPool() {
     const usage7d = Math.round(usage.usage_7d * 100);
     const reset5h = formatReset(usage.reset_5h);
     const reset7d = formatReset(usage.reset_7d);
+    const isExhausted = member.is_rate_limited;
+    const isLimited = member.is_active && !isExhausted && usage.usage_5h >= member.share_limit_percent / 100;
     const statusClass = member.is_rate_limited ? 'limited' : (member.is_active ? 'active' : 'inactive');
     
     html += `
       <div class="pool-item ${statusClass} ${member.is_me ? 'is-me' : ''} ${member.is_next ? 'is-next' : ''}">
         <div class="pool-item-info">
           <span class="pool-item-email">${escapeHtml(member.email)}</span>
-          <span class="pool-item-limit">${member.share_limit_percent}%</span>
+          ${isExhausted ? '<span class="pool-item-limit limited">Exhausted</span>' : isLimited ? '<span class="pool-item-limit limited">Limited</span>' : `<span class="pool-item-limit">${member.share_limit_percent}%</span>`}
 
           ${!member.is_active ? '<span class="pool-item-status">Inactive</span>' : ''}
-          ${member.is_rate_limited ? '<span class="pool-item-status limited">Limited</span>' : ''}
         </div>
         ${member.is_active ? `
           <div class="pool-item-usage">

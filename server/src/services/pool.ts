@@ -389,13 +389,39 @@ export function updateAccountUsage(
 ): void {
   const db = getDatabase();
 
+  // Account is exhausted if either 5h or 7d usage is at 99% or higher
+  const isExhausted = usage5h >= 0.99 || usage7d >= 0.99;
+
   logger.info(
-    { accountId, usage5h, usage7d, reset5h, reset7d, clearingRateLimit: usage5h < 1.0 },
+    { accountId, usage5h, usage7d, reset5h, reset7d, isExhausted },
     "Updating account usage"
   );
 
-  // Clear rate limit if usage is back to normal (below 100%)
-  if (usage5h < 1.0) {
+  if (isExhausted) {
+    // Mark as rate limited when exhausted
+    // Calculate seconds until reset based on which limit is exhausted
+    let rateLimitedUntil: string | null = null;
+    if (usage5h >= 0.99 && reset5h) {
+      rateLimitedUntil = new Date(parseInt(reset5h) * 1000).toISOString();
+    } else if (usage7d >= 0.99 && reset7d) {
+      rateLimitedUntil = new Date(parseInt(reset7d) * 1000).toISOString();
+    }
+
+    db.prepare(
+      `UPDATE users SET 
+        usage_5h = ?,
+        usage_7d = ?,
+        reset_5h = COALESCE(?, reset_5h),
+        reset_7d = COALESCE(?, reset_7d),
+        usage_updated_at = datetime('now'),
+        is_rate_limited = 1,
+        rate_limited_until = ?
+      WHERE id = ?`
+    ).run(usage5h, usage7d, reset5h, reset7d, rateLimitedUntil, accountId);
+    
+    logger.info({ accountId, rateLimitedUntil }, "Account marked as exhausted (usage >= 99%)");
+  } else {
+    // Clear rate limit if usage is back to normal
     db.prepare(
       `UPDATE users SET 
         usage_5h = ?,
@@ -405,16 +431,6 @@ export function updateAccountUsage(
         usage_updated_at = datetime('now'),
         is_rate_limited = 0,
         rate_limited_until = NULL
-      WHERE id = ?`
-    ).run(usage5h, usage7d, reset5h, reset7d, accountId);
-  } else {
-    db.prepare(
-      `UPDATE users SET 
-        usage_5h = ?,
-        usage_7d = ?,
-        reset_5h = COALESCE(?, reset_5h),
-        reset_7d = COALESCE(?, reset_7d),
-        usage_updated_at = datetime('now')
       WHERE id = ?`
     ).run(usage5h, usage7d, reset5h, reset7d, accountId);
   }
