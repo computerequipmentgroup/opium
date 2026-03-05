@@ -16,7 +16,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "app"],
+    "targets": "all",
     "category": "Utility",
     "icon": [
       "icons/32x32.png",
