@@ -14,7 +14,7 @@ declare global {
 
 /**
  * Authentication middleware
- * Requires valid API key in Authorization header
+ * Requires valid API key in Authorization header or x-api-key header
  */
 export async function authMiddleware(
   req: Request,
@@ -22,21 +22,26 @@ export async function authMiddleware(
   next: NextFunction
 ): Promise<void> {
   try {
-    const authHeader = req.headers.authorization;
+    // Check x-api-key header first (Anthropic's standard format)
+    let apiKey = req.headers["x-api-key"] as string | undefined;
 
-    if (!authHeader) {
-      throw createError("Missing Authorization header", 401, "UNAUTHORIZED");
-    }
+    // Fall back to Authorization header
+    if (!apiKey) {
+      const authHeader = req.headers.authorization;
 
-    // Support "Bearer <token>" format
-    const parts = authHeader.split(" ");
-    let apiKey: string;
+      if (!authHeader) {
+        throw createError("Missing Authorization header", 401, "UNAUTHORIZED");
+      }
 
-    if (parts.length === 2 && parts[0]?.toLowerCase() === "bearer") {
-      apiKey = parts[1] || "";
-    } else {
-      // Also support just the token directly
-      apiKey = authHeader;
+      // Support "Bearer <token>" format
+      const parts = authHeader.split(" ");
+
+      if (parts.length === 2 && parts[0]?.toLowerCase() === "bearer") {
+        apiKey = parts[1] || "";
+      } else {
+        // Also support just the token directly
+        apiKey = authHeader;
+      }
     }
 
     if (!apiKey || !apiKey.startsWith("op_")) {
@@ -70,19 +75,24 @@ export async function optionalAuthMiddleware(
   next: NextFunction
 ): Promise<void> {
   try {
-    const authHeader = req.headers.authorization;
+    // Check x-api-key header first (Anthropic's standard format)
+    let apiKey = req.headers["x-api-key"] as string | undefined;
 
-    if (!authHeader) {
-      return next();
-    }
+    // Fall back to Authorization header
+    if (!apiKey) {
+      const authHeader = req.headers.authorization;
 
-    const parts = authHeader.split(" ");
-    let apiKey: string;
+      if (!authHeader) {
+        return next();
+      }
 
-    if (parts.length === 2 && parts[0]?.toLowerCase() === "bearer") {
-      apiKey = parts[1] || "";
-    } else {
-      apiKey = authHeader;
+      const parts = authHeader.split(" ");
+
+      if (parts.length === 2 && parts[0]?.toLowerCase() === "bearer") {
+        apiKey = parts[1] || "";
+      } else {
+        apiKey = authHeader;
+      }
     }
 
     if (apiKey && apiKey.startsWith("op_")) {
