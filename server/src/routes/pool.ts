@@ -18,7 +18,7 @@ router.get(
   (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = req.user!;
-      logger.info({ userId: user.id, email: user.email, hasToken: user.access_token !== null }, "GET /pool request");
+      logger.info({ userId: user.id, username: user.username, hasToken: user.access_token !== null }, "GET /pool request");
       const members = getPoolMembersForUser(user.id);
       const status = getPoolStatus();
       logger.info({ memberCount: members.length, status }, "GET /pool response");

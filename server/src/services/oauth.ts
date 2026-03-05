@@ -118,7 +118,7 @@ export async function completeOAuthFlow(
   logger.info({ userId, changes: updateResult.changes }, "OAuth flow completed, account linked");
   
   // Verify the update
-  const verifyUser = db.prepare("SELECT id, email, access_token IS NOT NULL as has_token, is_active FROM users WHERE id = ?").get(userId);
+  const verifyUser = db.prepare("SELECT id, username, access_token IS NOT NULL as has_token, is_active FROM users WHERE id = ?").get(userId);
   logger.info({ userId, verifyUser }, "Verified user state after OAuth");
 
   return tokens;

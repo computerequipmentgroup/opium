@@ -1,7 +1,7 @@
 -- Users table (each user has exactly one Anthropic account)
 CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,                    -- UUID
-    email TEXT UNIQUE NOT NULL,             -- User email (display name in pool)
+    username TEXT UNIQUE NOT NULL,          -- Username (display name in pool)
     api_key_hash TEXT NOT NULL,             -- Hashed API key
     api_key_prefix TEXT NOT NULL,           -- First 8 chars for identification (e.g., "op_abc123")
     

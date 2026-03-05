@@ -14,16 +14,16 @@ const logger = createChildLogger("auth");
 /**
  * Register a new user
  */
-export async function registerUser(email: string): Promise<RegisterResponse> {
+export async function registerUser(username: string): Promise<RegisterResponse> {
   const db = getDatabase();
 
-  // Check if email already exists
+  // Check if username already exists
   const existing = db
-    .prepare("SELECT id FROM users WHERE email = ?")
-    .get(email) as { id: string } | undefined;
+    .prepare("SELECT id FROM users WHERE username = ?")
+    .get(username) as { id: string } | undefined;
 
   if (existing) {
-    throw new Error("Email already registered");
+    throw new Error("Username already taken");
   }
 
   // Generate API key
@@ -34,14 +34,14 @@ export async function registerUser(email: string): Promise<RegisterResponse> {
 
   // Insert user
   db.prepare(
-    `INSERT INTO users (id, email, api_key_hash, api_key_prefix) VALUES (?, ?, ?, ?)`
-  ).run(userId, email, apiKeyHash, apiKeyPrefix);
+    `INSERT INTO users (id, username, api_key_hash, api_key_prefix) VALUES (?, ?, ?, ?)`
+  ).run(userId, username, apiKeyHash, apiKeyPrefix);
 
-  logger.info({ userId, email }, "User registered");
+  logger.info({ userId, username }, "User registered");
 
   return {
     id: userId,
-    email,
+    username,
     api_key: apiKey, // Only returned once!
     has_account: false,
   };
@@ -133,7 +133,7 @@ export function toUserInfo(user: User): UserInfo {
 
   return {
     id: user.id,
-    email: user.email,
+    username: user.username,
     created_at: user.created_at,
     has_account: hasAccount,
     account,

@@ -39,7 +39,7 @@ export function getPoolMembersForUser(requestingUserId: string): PoolMember[] {
       availableCount: available.length,
       availableAccounts: available.map(a => ({ 
         id: a.id, 
-        email: a.email,
+        username: a.username,
         loadScore: calculateLoadScore(a),
         usage5h: a.usage_5h
       }))
@@ -53,7 +53,7 @@ export function getPoolMembersForUser(requestingUserId: string): PoolMember[] {
     { 
       sortedAccounts: available.map(a => ({ 
         id: a.id, 
-        email: a.email,
+        username: a.username,
         loadScore: calculateLoadScore(a)
       }))
     },
@@ -64,13 +64,13 @@ export function getPoolMembersForUser(requestingUserId: string): PoolMember[] {
   const nextAccountId = nextAccount?.id ?? null;
   
   logger.debug(
-    { nextAccountId, nextAccountEmail: nextAccount?.email },
+    { nextAccountId, nextAccountUsername: nextAccount?.username },
     "Selected next account"
   );
 
   return members.map((member) => ({
     id: member.id,
-    email: member.email,
+    username: member.username,
     is_active: Boolean(member.is_active),
     share_limit_percent: member.share_limit_percent,
     usage: member.is_active

@@ -1,7 +1,7 @@
 // User with embedded Anthropic account (one account per user)
 export interface User {
   id: string;
-  email: string;
+  username: string;
   api_key_hash: string;
   api_key_prefix: string;
 
@@ -32,7 +32,7 @@ export interface User {
 // User info returned to clients (no sensitive data)
 export interface UserInfo {
   id: string;
-  email: string;
+  username: string;
   created_at: string;
   has_account: boolean;
   account: AccountInfo | null;
@@ -57,7 +57,7 @@ export interface UsageStats {
 // Pool member view (what other users see)
 export interface PoolMember {
   id: string;
-  email: string;
+  username: string;
   is_active: boolean;
   share_limit_percent: number;
   usage: UsageStats | null;
@@ -98,7 +98,7 @@ export interface ApiResponse<T> {
 
 export interface RegisterResponse {
   id: string;
-  email: string;
+  username: string;
   api_key: string;
   has_account: boolean;
 }
@@ -115,6 +115,7 @@ export interface ServerConfig {
   databasePath: string;
   encryptionKey: string;
   apiKeySaltRounds: number;
+  masterApiKey: string;
   anthropicClientId: string;
   anthropicRedirectUri: string;
   logLevel: string;

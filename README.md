@@ -95,14 +95,15 @@ Each account can have a **usage limit** (0-100%) controlling how much of its all
 
 ### Create an API Key
 
-Create a local API key to authenticate your tools with the proxy. This is **not** a user account - it's simply a key for your own personal use to access your own accounts through the proxy.
+Create a local API key to authenticate your tools with the proxy. Registration requires the master API key (set via `MASTER_API_KEY` environment variable).
 
 > **Note:** Despite the endpoint name, this does not create a "user" in a multi-user sense. It generates a local API key for you to authenticate your development tools with your own Opium instance.
 
 ```bash
 curl -X POST http://localhost:8082/api/v1/users/register \
   -H "Content-Type: application/json" \
-  -d '{"email": "your@email.com"}'
+  -H "Authorization: Bearer <MASTER_API_KEY>" \
+  -d '{"username": "alice"}'
 ```
 
 Response:
@@ -111,7 +112,7 @@ Response:
   "success": true,
   "data": {
     "id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
-    "email": "your@email.com",
+    "username": "alice",
     "api_key": "op_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     "has_account": false
   }
