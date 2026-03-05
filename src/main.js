@@ -411,9 +411,9 @@ async function submitAuthCode() {
     });
     console.log("OAuth completed successfully");
     hideAddModal();
-    // Wait a moment for server to process, then reload
+    // Wait a moment for server to process, then sync and reload
     setTimeout(async () => {
-      await loadPool();
+      await syncPool();
     }, 500);
   } catch (e) {
     console.error("Failed to complete OAuth:", e);

@@ -465,6 +465,30 @@ export async function syncAccountUsage(accountId: string): Promise<boolean> {
     if (!response.ok) {
       const body = await response.text();
       logger.error({ accountId, status: response.status, body }, "Sync API call failed");
+      
+      // If rate limited (429), mark the account as drained so it's excluded from selection
+      if (response.status === 429) {
+        const retryAfter = response.headers.get("retry-after");
+        const retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : 300; // Default 5 min
+        markAccountRateLimited(accountId, retryAfterSeconds);
+        
+        // Also update usage to 100% since we know the account is exhausted
+        const reset5hHeader = response.headers.get("anthropic-ratelimit-unified-5h-reset");
+        const reset7dHeader = response.headers.get("anthropic-ratelimit-unified-7d-reset");
+        updateAccountUsage(
+          accountId,
+          1.0, // 100% usage
+          1.0, // 100% usage
+          reset5hHeader ?? undefined,
+          reset7dHeader ?? undefined
+        );
+        
+        logger.info(
+          { accountId, retryAfterSeconds },
+          "Account marked as drained (rate limited during sync)"
+        );
+      }
+      
       return false;
     }
 
