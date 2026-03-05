@@ -222,11 +222,16 @@ function renderPool() {
 
   emptyState.classList.add("hidden");
   
-  // Sort all members by usage (lowest first)
+  // Sort all members: available first by score, then rate-limited by score at bottom
   const allMembers = [...poolMembers].sort((a, b) => {
-    const usageA = a.usage?.usage_5h ?? 0;
-    const usageB = b.usage?.usage_5h ?? 0;
-    return usageA - usageB;
+    // Rate-limited accounts go to the bottom
+    if (a.is_rate_limited !== b.is_rate_limited) {
+      return a.is_rate_limited ? 1 : -1;
+    }
+    // Within each group, sort by load score (lowest first)
+    const scoreA = a.load_score ?? Infinity;
+    const scoreB = b.load_score ?? Infinity;
+    return scoreA - scoreB;
   });
 
   let html = '';
@@ -240,11 +245,9 @@ function renderPool() {
           <div class="account-header">
             <span class="account-name">${escapeHtml(myAccount.username)}</span>
             <div class="account-badges">
+              <span class="account-status active">${myAccount.share_limit_percent}%</span>
               ${myAccount.is_active ? '<span class="account-status active">In Pool</span>' : '<span class="account-status disabled">Not in Pool</span>'}
             </div>
-          </div>
-          <div class="settings-row">
-            <span>Share limit: ${myAccount.share_limit_percent}%</span>
           </div>
           <div class="account-actions">
             <button onclick="toggleMyPoolAccount()">${myAccount.is_active ? 'Leave Pool' : 'Join Pool'}</button>
@@ -288,7 +291,7 @@ function renderPool() {
     const statusClass = member.is_rate_limited ? 'limited' : (member.is_active ? 'active' : 'inactive');
     
     html += `
-      <div class="pool-item ${statusClass} ${member.is_me ? 'is-me' : ''} ${member.is_next ? 'is-next' : ''}">
+      <div class="pool-item ${statusClass} ${member.is_next ? 'is-next' : ''}">
         <div class="pool-item-info">
           <span class="pool-item-username">${escapeHtml(member.username)}</span>
           ${isExhausted ? '<span class="pool-item-limit limited">Exhausted</span>' : isLimited ? '<span class="pool-item-limit limited">Limited</span>' : `<span class="pool-item-limit">${member.share_limit_percent}%</span>`}

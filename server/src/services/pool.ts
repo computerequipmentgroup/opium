@@ -488,13 +488,19 @@ export async function syncAccountUsage(accountId: string): Promise<boolean> {
         const retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : 300; // Default 5 min
         markAccountRateLimited(accountId, retryAfterSeconds);
         
-        // Also update usage to 100% since we know the account is exhausted
+        // Update usage from headers, fallback to 100% if not provided
+        const usage5hHeader = response.headers.get("anthropic-ratelimit-unified-5h-utilization");
+        const usage7dHeader = response.headers.get("anthropic-ratelimit-unified-7d-utilization");
         const reset5hHeader = response.headers.get("anthropic-ratelimit-unified-5h-reset");
         const reset7dHeader = response.headers.get("anthropic-ratelimit-unified-7d-reset");
+        
+        const usage5h = usage5hHeader ? parseFloat(usage5hHeader) : 1.0;
+        const usage7d = usage7dHeader ? parseFloat(usage7dHeader) : 1.0;
+        
         updateAccountUsage(
           accountId,
-          1.0, // 100% usage
-          1.0, // 100% usage
+          isNaN(usage5h) ? 1.0 : usage5h,
+          isNaN(usage7d) ? 1.0 : usage7d,
           reset5hHeader ?? undefined,
           reset7dHeader ?? undefined
         );
