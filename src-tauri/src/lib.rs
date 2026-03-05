@@ -68,7 +68,7 @@ fn calculate_dropdown_position<R: Runtime>(
     click_y: f64,
 ) -> (f64, f64) {
     let window_width = 380.0;
-    let window_height = 480.0;
+    let window_height = 580.0;
     
     // Get scale factor and monitor info
     let scale_factor = window.scale_factor().unwrap_or(1.0);
@@ -200,7 +200,7 @@ pub fn run() {
                 WebviewUrl::App("index.html".into()),
             )
             .title("Opium")
-            .inner_size(380.0, 480.0)
+            .inner_size(380.0, 580.0)
             .resizable(false)
             .visible(false)       // Start hidden, shown from tray click
             .decorations(false)   // Frameless - makes it non-movable
