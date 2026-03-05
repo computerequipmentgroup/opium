@@ -115,7 +115,7 @@ export interface ServerConfig {
   databasePath: string;
   encryptionKey: string;
   apiKeySaltRounds: number;
-  masterApiKey: string;
+  adminApiKey: string;
   anthropicClientId: string;
   anthropicRedirectUri: string;
   logLevel: string;

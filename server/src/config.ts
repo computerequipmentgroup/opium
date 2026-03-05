@@ -46,7 +46,7 @@ export const config: ServerConfig = {
     "dev-key-do-not-use-in-production-!!"
   ),
   apiKeySaltRounds: getEnvInt("API_KEY_SALT_ROUNDS", 12),
-  masterApiKey: getEnv("MASTER_API_KEY"),
+  adminApiKey: getEnv("ADMIN_API_KEY"),
   anthropicClientId: getEnv(
     "ANTHROPIC_CLIENT_ID",
     "9d1c250a-e61b-44d9-88ed-5944d1962f5e"

@@ -15,6 +15,7 @@ services:
       - DATABASE_PATH=/app/data/opium.db
       - ENCRYPTION_KEY=${ENCRYPTION_KEY:-change-this-in-production-32char}
       - API_KEY_SALT_ROUNDS=12
+      - ADMIN_API_KEY=${ADMIN_API_KEY}
       - LOG_LEVEL=info
       - ENABLE_REQUEST_LOGGING=false
     restart: unless-stopped

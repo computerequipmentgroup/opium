@@ -29,8 +29,8 @@ router.post(
         providedKey = authHeader;
       }
 
-      if (providedKey !== config.masterApiKey) {
-        throw createError("Invalid master API key", 401, "UNAUTHORIZED");
+      if (providedKey !== config.adminApiKey) {
+        throw createError("Invalid admin API key", 401, "UNAUTHORIZED");
       }
 
       // Validate username
