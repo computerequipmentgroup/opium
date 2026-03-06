@@ -350,8 +350,8 @@ async function syncPool() {
 
 // Handle add/unlink button click
 function handleAddBtnClick() {
-  const myAccount = poolMembers.find(m => m.is_me);
-  if (myAccount) {
+  // Check button state instead of poolMembers to avoid race conditions
+  if (addBtn.classList.contains("btn-danger")) {
     unlinkAccount();
   } else {
     linkAccount();
@@ -549,10 +549,6 @@ async function confirmShareLimit() {
 
 // Unlink Anthropic account
 window.unlinkAccount = async function() {
-  if (!confirm("Are you sure you want to unlink your Anthropic account?")) {
-    return;
-  }
-  
   try {
     await invoke("server_unlink_account");
     await loadPool();
