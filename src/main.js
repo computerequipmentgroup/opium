@@ -532,15 +532,20 @@ async function confirmShareLimit() {
   const input = document.getElementById("share-limit-input");
   const limitNum = parseInt(input.value, 10);
   
+  console.log("confirmShareLimit called, limitNum:", limitNum);
+  
   if (isNaN(limitNum) || limitNum < 0 || limitNum > 100) {
     alert("Please enter a number between 0 and 100");
     return;
   }
   
   try {
-    await invoke("server_set_share_limit", { shareLimitPercent: limitNum });
+    console.log("Calling invoke with shareLimitPercent:", limitNum);
+    const result = await invoke("server_set_share_limit", { shareLimitPercent: limitNum });
+    console.log("invoke result:", result);
     hideLimitModal();
     await loadPool();
+    console.log("loadPool completed");
   } catch (e) {
     console.error("Failed to update share limit:", e);
     alert("Failed to update: " + e);

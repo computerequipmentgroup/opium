@@ -440,6 +440,8 @@ export function updateAccountUsage(
 
 const ANTHROPIC_API_BASE = "https://api.anthropic.com";
 const ANTHROPIC_BETA_HEADER = "oauth-2025-04-20,interleaved-thinking-2025-05-14";
+// Use the cheapest/fastest model for sync - we only need the rate limit headers
+const SYNC_MODEL = "claude-3-haiku-20240307";
 
 /**
  * Sync usage for a single account by making a minimal API request
@@ -453,16 +455,15 @@ export async function syncAccountUsage(accountId: string): Promise<boolean> {
 
   try {
     // Make a minimal API call to get rate limit headers
-    const response = await fetch(`${ANTHROPIC_API_BASE}/v1/messages?beta=true`, {
+    const response = await fetch(`${ANTHROPIC_API_BASE}/v1/messages`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${accessToken}`,
         "anthropic-version": "2023-06-01",
-        "anthropic-beta": ANTHROPIC_BETA_HEADER,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: SYNC_MODEL,
         max_tokens: 1,
         messages: [{ role: "user", content: "." }],
       }),

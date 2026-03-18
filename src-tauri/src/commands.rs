@@ -127,16 +127,30 @@ pub async fn server_set_share_limit(
     state: State<'_, SharedState>,
     share_limit_percent: i32,
 ) -> CmdResult<()> {
+    tracing::info!("server_set_share_limit called with: {}", share_limit_percent);
+    
     let config = state.get_config();
+    tracing::info!("Server config: url={:?}, configured={}", config.server.url, config.server.is_configured());
+    
     if !config.server.is_configured() {
         return Err("Server not configured".to_string());
     }
 
-    let client = ServerClient::new(&config.server).map_err(|e| e.to_string())?;
-    client
+    let client = ServerClient::new(&config.server).map_err(|e| {
+        tracing::error!("Failed to create client: {}", e);
+        e.to_string()
+    })?;
+    
+    let result = client
         .update_account(None, Some(share_limit_percent))
-        .await
-        .map_err(|e| e.to_string())?;
+        .await;
+    
+    match &result {
+        Ok(_) => tracing::info!("Successfully updated share limit"),
+        Err(e) => tracing::error!("Failed to update share limit: {}", e),
+    }
+    
+    result.map_err(|e| e.to_string())?;
 
     Ok(())
 }
