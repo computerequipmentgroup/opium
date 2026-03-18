@@ -154,7 +154,7 @@ export function canAccountBeUsedBy(account: User, requesterId: string): boolean 
 
 /**
  * Calculate minutes until 5h reset
- * Returns Infinity if no reset time available
+ * Returns Infinity if no reset time available or if reset time is in the past (stale data)
  */
 function getMinutesUntilReset(account: User): number {
   if (!account.reset_5h) return Infinity;
@@ -163,7 +163,7 @@ function getMinutesUntilReset(account: User): number {
   const now = Date.now();
   const diff = resetTime - now;
   
-  if (diff <= 0) return 0;
+  if (diff <= 0) return Infinity;
   return Math.floor(diff / 60000);
 }
 
