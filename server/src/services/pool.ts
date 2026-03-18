@@ -455,11 +455,13 @@ export async function syncAccountUsage(accountId: string): Promise<boolean> {
 
   try {
     // Make a minimal API call to get rate limit headers
-    const response = await fetch(`${ANTHROPIC_API_BASE}/v1/messages`, {
+    // OAuth tokens require beta=true and the anthropic-beta header
+    const response = await fetch(`${ANTHROPIC_API_BASE}/v1/messages?beta=true`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${accessToken}`,
         "anthropic-version": "2023-06-01",
+        "anthropic-beta": ANTHROPIC_BETA_HEADER,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
