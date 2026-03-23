@@ -441,7 +441,7 @@ export function updateAccountUsage(
 const ANTHROPIC_API_BASE = "https://api.anthropic.com";
 const ANTHROPIC_BETA_HEADER = "oauth-2025-04-20,interleaved-thinking-2025-05-14";
 // Use the cheapest/fastest model for sync - we only need the rate limit headers
-const SYNC_MODEL = "claude-3-haiku-20240307";
+const SYNC_MODEL = "claude-haiku-4-5";
 
 /**
  * Sync usage for a single account by making a minimal API request
