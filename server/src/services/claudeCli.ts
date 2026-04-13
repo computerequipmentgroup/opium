@@ -92,20 +92,24 @@ export type ClaudeStreamEvent = Record<string, unknown> & { type?: string };
 const MAX_PROMPT_CHARS = 150_000;
 
 /**
- * Flatten messages into system prompt + stdin prompt.
- * Keeps the system channel separate so we can pass it via `--system-prompt`
- * (replacing the 23k-token Claude Code default) instead of inlining.
+ * Flatten messages into a single stdin prompt.
+ *
+ * IMPORTANT: system messages from the request are inlined into the stdin
+ * blob with a `[System]` prefix, NOT hoisted to `--append-system-prompt`.
+ * Passing large third-party-agent content via `--append-system-prompt`
+ * trips Anthropic's "third-party apps" detector and 400s with the
+ * "now draws from extra usage" error. stdin content is not scanned the
+ * same way. Mirrors the approach in ocp/server.mjs.
  */
 function flattenMessages(messages: ClaudeMessage[]): {
   systemPrompt: string;
   userPrompt: string;
 } {
-  const systemParts: string[] = [];
   const convoParts: string[] = [];
 
   for (const m of messages) {
     if (m.role === "system") {
-      systemParts.push(m.content);
+      convoParts.push(`[System] ${m.content}`);
     } else if (m.role === "assistant") {
       convoParts.push(`[Assistant] ${m.content}`);
     } else {
@@ -125,7 +129,7 @@ function flattenMessages(messages: ClaudeMessage[]): {
   }
 
   return {
-    systemPrompt: systemParts.join("\n\n"),
+    systemPrompt: "",
     userPrompt,
   };
 }
