@@ -21,6 +21,18 @@ const MODEL_MAP: Record<string, string> = {
   haiku: "claude-haiku-4-5-20251001",
 };
 
+const DEFAULT_ALLOWED_TOOLS = [
+  "Bash",
+  "Read", 
+  "Write",
+  "Edit",
+  "Glob",
+  "Grep",
+  "WebSearch",
+  "WebFetch",
+  "Agent",
+];
+
 function resolveModel(model: string): string {
   return MODEL_MAP[model] ?? model;
 }
@@ -259,7 +271,7 @@ export function runClaudeStream(
     cliModel,
     session,
     systemPrompt,
-    allowedTools: opts.allowedTools ?? [],
+    allowedTools: opts.allowedTools ?? DEFAULT_ALLOWED_TOOLS,
     skipPermissions: opts.skipPermissions ?? false,
   });
 
