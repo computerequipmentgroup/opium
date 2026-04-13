@@ -149,11 +149,11 @@ function buildCliArgs(opts: {
   allowedTools: string[];
   skipPermissions: boolean;
 }): string[] {
-  // Flag set tuned to look as close to normal `claude -p` interactive usage
-  // as possible — Anthropic's "third-party app" detector appears to key on
-  // the aggressive automation flag combo (--tools "", --system-prompt
-  // replacing the default, --include-partial-messages). Keep stream-json so
-  // the proxy can still parse events; drop the rest.
+  // stream-json + --include-partial-messages is required so the CLI emits
+  // `stream_event` envelopes the proxy can unwrap into Anthropic SSE deltas.
+  // Without --include-partial-messages the CLI emits full `assistant`
+  // messages instead and the proxy's event parser drops them, leaving the
+  // client with an empty response.
   const args: string[] = [
     "-p",
     "--model",
@@ -161,6 +161,7 @@ function buildCliArgs(opts: {
     "--output-format",
     "stream-json",
     "--verbose",
+    "--include-partial-messages",
   ];
 
   if (opts.session?.resume) {
