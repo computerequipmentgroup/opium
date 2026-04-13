@@ -86,10 +86,8 @@ function flattenContent(
         );
       case "tool_use":
       case "tool_result":
-        throw new BadRequestError(
-          `${block.type} content blocks are not supported by the CLI proxy path`,
-          "UNSUPPORTED_CONTENT"
-        );
+        // CLI handles tools internally — skip these blocks in the prompt
+        break;
       default:
         throw new BadRequestError(
           `unsupported content block type: ${block.type}`,
