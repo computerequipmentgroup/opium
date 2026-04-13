@@ -301,6 +301,11 @@ export function runClaudeStream(
     promptForStdin = flat.userPrompt;
   }
 
+  logger.debug(
+    { cliModel, optsModel: opts.model, resolved: opts.model !== cliModel },
+    "Resolved model"
+  );
+
   const args = buildCliArgs({
     cliModel,
     session,

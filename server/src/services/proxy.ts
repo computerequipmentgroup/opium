@@ -546,6 +546,11 @@ export async function proxyRequest(
   let attempts = 0;
   const triedAccounts = new Set<string>();
 
+  logger.info(
+    { model: adapted.model, stream: adapted.stream, conversationId: adapted.conversationId },
+    "Incoming proxy request"
+  );
+
   while (attempts < maxRetries) {
     attempts++;
 
