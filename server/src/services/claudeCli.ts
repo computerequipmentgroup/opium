@@ -292,6 +292,9 @@ export function runClaudeStream(
   // NDJSON line buffer — the CLI emits one JSON event per line on stdout.
   let stdoutBuffer = "";
   let stderrBuffer = "";
+  // DEBUG: keep last N parsed events so we can dump them on failure.
+  const recentEvents: string[] = [];
+  const RECENT_MAX = 20;
 
   proc.stdout.setEncoding("utf8");
   proc.stdout.on("data", (chunk: string) => {
@@ -301,6 +304,8 @@ export function runClaudeStream(
       const line = stdoutBuffer.slice(0, newlineIdx).trim();
       stdoutBuffer = stdoutBuffer.slice(newlineIdx + 1);
       if (!line) continue;
+      recentEvents.push(line.slice(0, 500));
+      if (recentEvents.length > RECENT_MAX) recentEvents.shift();
       try {
         const event = JSON.parse(line) as ClaudeStreamEvent;
         onEvent(event);
@@ -370,7 +375,22 @@ export function runClaudeStream(
         ? `claude CLI timeout after ${timeoutMs}ms`
         : stderrBuffer.trim().slice(0, 500) ||
           `claude CLI exited with code=${code} signal=${signal ?? "none"}`;
-      logger.warn({ cliModel, code, signal, elapsedMs, msg }, "Claude CLI exited with error");
+      logger.warn(
+        {
+          cliModel,
+          code,
+          signal,
+          elapsedMs,
+          errMsg: msg,
+          stderrRaw: stderrBuffer.slice(0, 2000),
+          stdoutTail: stdoutBuffer.slice(0, 2000),
+          recentEvents,
+          args,
+          promptChars: promptForStdin.length,
+          systemChars: systemPrompt.length,
+        },
+        "Claude CLI exited with error"
+      );
       reject(new Error(msg));
     });
 
