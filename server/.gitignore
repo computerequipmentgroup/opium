@@ -4,11 +4,9 @@ node_modules/
 # Build output
 dist/
 
-# Database
-data/*.db
-data/*.db-journal
-data/*.db-wal
-data/*.db-shm
+# Runtime data (SQLite DB + materialized per-account HOME dirs — the
+# accounts/ subtree contains DECRYPTED OAuth credentials, never commit)
+data/
 
 # Environment
 .env

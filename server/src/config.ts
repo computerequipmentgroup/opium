@@ -1,7 +1,57 @@
 import { config as dotenvConfig } from "dotenv";
+import { accessSync, constants } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import type { ServerConfig } from "./types/index.js";
 
 dotenvConfig();
+
+/**
+ * Resolve the `claude` CLI binary.
+ * Priority: CLAUDE_BIN env var > well-known paths > `which claude`.
+ * Throws if not found — failing at startup beats failing mid-request.
+ */
+function resolveClaudeBin(): string {
+  const envBin = process.env.CLAUDE_BIN;
+  if (envBin) {
+    try {
+      accessSync(envBin, constants.X_OK);
+      return envBin;
+    } catch {
+      throw new Error(`CLAUDE_BIN="${envBin}" is set but not executable`);
+    }
+  }
+
+  const candidates = [
+    "/opt/homebrew/bin/claude",
+    "/usr/local/bin/claude",
+    "/usr/bin/claude",
+    join(process.env.HOME || "", ".local/bin/claude"),
+  ];
+  for (const p of candidates) {
+    try {
+      accessSync(p, constants.X_OK);
+      return p;
+    } catch {
+      /* try next */
+    }
+  }
+
+  try {
+    const resolved = execFileSync("which", ["claude"], {
+      encoding: "utf8",
+      timeout: 5000,
+    }).trim();
+    if (resolved) return resolved;
+  } catch {
+    /* fall through */
+  }
+
+  throw new Error(
+    "claude binary not found. Set CLAUDE_BIN=/path/to/claude or ensure claude is on PATH."
+  );
+}
 
 function getEnv(key: string, defaultValue?: string): string {
   const value = process.env[key];
@@ -57,6 +107,11 @@ export const config: ServerConfig = {
   ),
   logLevel: getEnv("LOG_LEVEL", "info"),
   enableRequestLogging: getEnvBool("ENABLE_REQUEST_LOGGING", false),
+  claudeHomeRoot: getEnv("OPIUM_HOME_ROOT", join(homedir(), ".opium", "accounts")),
+  claudeBin: resolveClaudeBin(),
+  claudeMaxConcurrent: getEnvInt("CLAUDE_MAX_CONCURRENT", 8),
+  claudeTimeoutMs: getEnvInt("CLAUDE_TIMEOUT_MS", 600_000),
+  claudeSessionTtlMs: getEnvInt("CLAUDE_SESSION_TTL_MS", 3_600_000),
 };
 
 export function isDevelopment(): boolean {

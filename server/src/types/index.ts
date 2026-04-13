@@ -120,4 +120,9 @@ export interface ServerConfig {
   anthropicRedirectUri: string;
   logLevel: string;
   enableRequestLogging: boolean;
+  claudeHomeRoot: string;
+  claudeBin: string;
+  claudeMaxConcurrent: number;
+  claudeTimeoutMs: number;
+  claudeSessionTtlMs: number;
 }

@@ -18,6 +18,13 @@ services:
       - ADMIN_API_KEY=${ADMIN_API_KEY}
       - LOG_LEVEL=info
       - ENABLE_REQUEST_LOGGING=false
+      # Claude CLI integration — the Dockerfile also sets these, duplicated
+      # here so compose overrides (if any) are obvious.
+      - CLAUDE_BIN=/usr/local/bin/claude
+      - OPIUM_HOME_ROOT=/app/data/accounts
+      - CLAUDE_MAX_CONCURRENT=${CLAUDE_MAX_CONCURRENT:-8}
+      - CLAUDE_TIMEOUT_MS=${CLAUDE_TIMEOUT_MS:-600000}
+      - CLAUDE_SESSION_TTL_MS=${CLAUDE_SESSION_TTL_MS:-3600000}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8082/health"]

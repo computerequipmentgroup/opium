@@ -399,12 +399,21 @@ export function updateAccountUsage(
 
   if (isExhausted) {
     // Mark as rate limited when exhausted
-    // Calculate seconds until reset based on which limit is exhausted
+    // Calculate seconds until reset based on which limit is exhausted.
+    // reset_{5h,7d} may be either an ISO-8601 timestamp (oauth/usage probe)
+    // or a Unix-epoch-seconds integer string (legacy header path). Handle
+    // both so a mixed upgrade never produces 1970 dates.
     let rateLimitedUntil: string | null = null;
-    if (usage5h >= 0.99 && reset5h) {
-      rateLimitedUntil = new Date(parseInt(reset5h) * 1000).toISOString();
-    } else if (usage7d >= 0.99 && reset7d) {
-      rateLimitedUntil = new Date(parseInt(reset7d) * 1000).toISOString();
+    const raw = usage5h >= 0.99 ? reset5h : usage7d >= 0.99 ? reset7d : undefined;
+    if (raw) {
+      const asNumber = Number(raw);
+      const parsed =
+        Number.isFinite(asNumber) && !raw.includes("-") && !raw.includes("T")
+          ? new Date(asNumber * 1000)
+          : new Date(raw);
+      if (!Number.isNaN(parsed.getTime())) {
+        rateLimitedUntil = parsed.toISOString();
+      }
     }
 
     db.prepare(
@@ -438,13 +447,25 @@ export function updateAccountUsage(
 
 
 
-const ANTHROPIC_API_BASE = "https://api.anthropic.com";
-const ANTHROPIC_BETA_HEADER = "oauth-2025-04-20,interleaved-thinking-2025-05-14";
-// Use the cheapest/fastest model for sync - we only need the rate limit headers
-const SYNC_MODEL = "claude-haiku-4-5";
+// Dedicated plan-usage endpoint used by the Claude Code CLI. Returns 5h + 7d
+// utilization directly without needing to make a billable inference call.
+const USAGE_PROBE_URL = "https://api.anthropic.com/api/oauth/usage";
+const OAUTH_BETA_HEADER = "oauth-2025-04-20";
+
+interface UsageBucket {
+  utilization?: number; // 0-100 percent
+  resets_at?: string;
+}
+
+interface UsageProbeResponse {
+  five_hour?: UsageBucket;
+  seven_day?: UsageBucket;
+}
 
 /**
- * Sync usage for a single account by making a minimal API request
+ * Probe Anthropic's plan-usage endpoint for a single account and persist the
+ * 5h/7d utilization + reset times. Replaces the old header-scrape approach,
+ * which burned a billable inference call per sync.
  */
 export async function syncAccountUsage(accountId: string): Promise<boolean> {
   const accessToken = await getValidAccessToken(accountId);
@@ -453,108 +474,66 @@ export async function syncAccountUsage(accountId: string): Promise<boolean> {
     return false;
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+
   try {
-    // Make a minimal API call to get rate limit headers
-    // OAuth tokens require beta=true and the anthropic-beta header
-    const response = await fetch(`${ANTHROPIC_API_BASE}/v1/messages?beta=true`, {
-      method: "POST",
+    const response = await fetch(USAGE_PROBE_URL, {
+      method: "GET",
       headers: {
-        "Authorization": `Bearer ${accessToken}`,
-        "anthropic-version": "2023-06-01",
-        "anthropic-beta": ANTHROPIC_BETA_HEADER,
+        Authorization: `Bearer ${accessToken}`,
+        "anthropic-beta": OAUTH_BETA_HEADER,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: SYNC_MODEL,
-        max_tokens: 1,
-        messages: [{ role: "user", content: "." }],
-      }),
+      signal: controller.signal,
     });
 
-    // Log all rate limit headers for debugging
-    const allHeaders: Record<string, string> = {};
-    response.headers.forEach((value, key) => {
-      if (key.includes("ratelimit") || key.includes("retry")) {
-        allHeaders[key] = value;
-      }
-    });
-    logger.info({ accountId, status: response.status, headers: allHeaders }, "Response headers from Anthropic");
-
-    // Check for error response
     if (!response.ok) {
       const body = await response.text();
-      logger.error({ accountId, status: response.status, body }, "Sync API call failed");
-      
-      // If rate limited (429), mark the account as drained so it's excluded from selection
+      logger.error(
+        { accountId, status: response.status, body: body.slice(0, 300) },
+        "Usage probe failed"
+      );
+
+      // 429 on the probe itself — the whole account is throttled for now.
+      // Treat exactly like the old sync path: mark rate limited and bump
+      // usage to 100% so the pool excludes it.
       if (response.status === 429) {
         const retryAfter = response.headers.get("retry-after");
-        const retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : 300; // Default 5 min
+        const retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : 300;
         markAccountRateLimited(accountId, retryAfterSeconds);
-        
-        // Update usage from headers, fallback to 100% if not provided
-        const usage5hHeader = response.headers.get("anthropic-ratelimit-unified-5h-utilization");
-        const usage7dHeader = response.headers.get("anthropic-ratelimit-unified-7d-utilization");
-        const reset5hHeader = response.headers.get("anthropic-ratelimit-unified-5h-reset");
-        const reset7dHeader = response.headers.get("anthropic-ratelimit-unified-7d-reset");
-        
-        const usage5h = usage5hHeader ? parseFloat(usage5hHeader) : 1.0;
-        const usage7d = usage7dHeader ? parseFloat(usage7dHeader) : 1.0;
-        
-        updateAccountUsage(
-          accountId,
-          isNaN(usage5h) ? 1.0 : usage5h,
-          isNaN(usage7d) ? 1.0 : usage7d,
-          reset5hHeader ?? undefined,
-          reset7dHeader ?? undefined
-        );
-        
+        updateAccountUsage(accountId, 1.0, 1.0);
         logger.info(
           { accountId, retryAfterSeconds },
-          "Account marked as drained (rate limited during sync)"
+          "Account marked as drained (usage probe hit 429)"
         );
       }
-      
       return false;
     }
 
-    // Parse rate limit headers
-    const headers = response.headers;
-    const usage5hHeader = headers.get("anthropic-ratelimit-unified-5h-utilization");
-    const usage7dHeader = headers.get("anthropic-ratelimit-unified-7d-utilization");
-    const reset5hHeader = headers.get("anthropic-ratelimit-unified-5h-reset");
-    const reset7dHeader = headers.get("anthropic-ratelimit-unified-7d-reset");
+    const data = (await response.json()) as UsageProbeResponse;
+
+    // utilization comes back as 0-100; pool code expects 0-1.
+    const raw5h = data.five_hour?.utilization;
+    const raw7d = data.seven_day?.utilization;
+    const usage5h = typeof raw5h === "number" ? raw5h / 100 : 0;
+    const usage7d = typeof raw7d === "number" ? raw7d / 100 : 0;
+    const reset5h = data.five_hour?.resets_at ?? undefined;
+    const reset7d = data.seven_day?.resets_at ?? undefined;
 
     logger.info(
-      { 
-        accountId, 
-        status: response.status,
-        usage5h: usage5hHeader, 
-        usage7d: usage7dHeader,
-        reset5h: reset5hHeader,
-        reset7d: reset7dHeader,
-      },
-      "Synced account usage from Anthropic"
+      { accountId, usage5h, usage7d, reset5h, reset7d },
+      "Synced account usage via oauth/usage probe"
     );
 
-    const usage5h = usage5hHeader ? parseFloat(usage5hHeader) : undefined;
-    const usage7d = usage7dHeader ? parseFloat(usage7dHeader) : undefined;
-
-    if (usage5h !== undefined && !isNaN(usage5h)) {
-      updateAccountUsage(
-        accountId,
-        usage5h,
-        usage7d !== undefined && !isNaN(usage7d) ? usage7d : 0,
-        reset5hHeader ?? undefined,
-        reset7dHeader ?? undefined
-      );
-      return true;
-    }
-
-    logger.warn({ accountId }, "No usage headers received from Anthropic");
-    return false;
+    updateAccountUsage(accountId, usage5h, usage7d, reset5h, reset7d);
+    return true;
   } catch (error) {
-    logger.error({ accountId, error }, "Failed to sync account usage");
+    const msg = (error as Error).message ?? String(error);
+    logger.error({ accountId, error: msg }, "Failed to sync account usage");
     return false;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 

@@ -125,6 +125,33 @@ Save the `api_key` - you'll need it to authenticate your tools with the proxy.
 
 After creating an API key, use the Opium desktop app to link your own Anthropic account via OAuth.
 
+### Standalone Server Deployment
+
+The proxy can also run without the desktop app. Opium's server bridges the Anthropic Messages API to the local `claude` CLI (`claude -p --output-format stream-json`) so it stays in sync with whatever Anthropic currently honors for OAuth subscription accounts.
+
+**CLI dependency.** The server requires the `@anthropic-ai/claude-code` CLI to be installed and reachable. Version `2.1.104` is pinned — the stream-json format is undocumented and may drift between releases. Override via the `CLAUDE_BIN` env var or update `EXPECTED_CLAUDE_VERSION` in `server/src/index.ts` in lockstep with a deliberate bump.
+
+**Env vars (server/.env):**
+
+| Var | Default | Purpose |
+|---|---|---|
+| `ADMIN_API_KEY` | — | Required. Admin bearer for user registration. |
+| `ENCRYPTION_KEY` | — | Required. 32-byte hex key for at-rest token encryption. |
+| `CLAUDE_BIN` | auto-detect | Absolute path to `claude` binary. |
+| `OPIUM_HOME_ROOT` | `~/.opium/accounts` | Per-account HOME dirs containing materialized `.claude/.credentials.json`. |
+| `CLAUDE_MAX_CONCURRENT` | `8` | Concurrency cap for CLI child processes. |
+| `CLAUDE_TIMEOUT_MS` | `600000` | Per-request hard timeout. |
+| `CLAUDE_SESSION_TTL_MS` | `3600000` | Idle TTL for the in-memory session map. |
+
+**Docker.** `server/Dockerfile` installs the pinned CLI at build time. `server/docker-compose.yml` mounts a volume at `/app/data` so both the SQLite DB and the materialized per-account credentials survive restarts.
+
+```bash
+cd server
+echo "ADMIN_API_KEY=$(openssl rand -hex 16)" > .env
+echo "ENCRYPTION_KEY=$(openssl rand -hex 32)" >> .env
+docker compose up -d
+```
+
 ## OpenCode Setup
 
 To use the balancer with OpenCode, place an `opencode.json` in **each folder** where you want to use it:
