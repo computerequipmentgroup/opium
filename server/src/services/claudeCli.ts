@@ -23,7 +23,7 @@ const MODEL_MAP: Record<string, string> = {
 
 const DEFAULT_ALLOWED_TOOLS = [
   "Bash",
-  "Read", 
+  "Read",
   "Write",
   "Edit",
   "Glob",
@@ -56,8 +56,11 @@ setInterval(() => {
     if (now - s.lastUsed > config.claudeSessionTtlMs) {
       sessions.delete(id);
       logger.debug(
-        { conversationId: id.slice(0, 12), idleMinutes: Math.round((now - s.lastUsed) / 60000) },
-        "Expired idle session"
+        {
+          conversationId: id.slice(0, 12),
+          idleMinutes: Math.round((now - s.lastUsed) / 60000),
+        },
+        "Expired idle session",
       );
     }
   }
@@ -70,8 +73,10 @@ setInterval(() => {
 let activeCount = 0;
 
 export interface ClaudeMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
+  role: "system" | "user" | "assistant" | "tool";
+  content:
+    | string
+    | Array<{ type: string; text?: string; [key: string]: unknown }>;
 }
 
 export interface ClaudeSpawnOptions {
@@ -120,26 +125,44 @@ function flattenMessages(messages: ClaudeMessage[]): {
   const convoParts: string[] = [];
 
   for (const m of messages) {
-    if (m.role === "system") {
-      convoParts.push(`[System] ${m.content}`);
-    } else if (m.role === "assistant") {
-      convoParts.push(`[Assistant] ${m.content}`);
+    // Skip tool result messages entirely - CLI handles tools internally
+    if (m.role === "tool") continue;
+    // Handle content that might be an array of blocks
+    let textContent: string;
+    if (typeof m.content === "string") {
+      textContent = m.content;
+    } else if (Array.isArray(m.content)) {
+      // Extract only text blocks, skip tool_use/tool_result
+      textContent = m.content
+        .filter(
+          (block: any) => block.type === "text" || typeof block === "string",
+        )
+        .map((block: any) =>
+          typeof block === "string" ? block : block.text || "",
+        )
+        .join("\n");
     } else {
-      convoParts.push(m.content);
+      textContent = JSON.stringify(m.content);
+    }
+    if (!textContent.trim()) continue; // Skip empty messages after filtering
+    if (m.role === "system") {
+      convoParts.push(`[System] ${textContent}`);
+    } else if (m.role === "assistant") {
+      convoParts.push(`[Assistant] ${textContent}`);
+    } else {
+      convoParts.push(textContent);
     }
   }
-
   let userPrompt = convoParts.join("\n\n");
   if (userPrompt.length > MAX_PROMPT_CHARS) {
     logger.warn(
       { originalChars: userPrompt.length, maxChars: MAX_PROMPT_CHARS },
-      "Prompt exceeds max chars, truncating from the head"
+      "Prompt exceeds max chars, truncating from the head",
     );
     userPrompt =
       `[Note: older context truncated to fit ${MAX_PROMPT_CHARS} chars]\n\n` +
       userPrompt.slice(userPrompt.length - MAX_PROMPT_CHARS);
   }
-
   return {
     systemPrompt: "",
     userPrompt,
@@ -228,11 +251,11 @@ function buildChildEnv(home: string): NodeJS.ProcessEnv {
  */
 export function runClaudeStream(
   opts: ClaudeSpawnOptions,
-  onEvent: (event: ClaudeStreamEvent) => void
+  onEvent: (event: ClaudeStreamEvent) => void,
 ): ClaudeStreamHandle {
   if (activeCount >= config.claudeMaxConcurrent) {
     throw new Error(
-      `claude concurrency limit reached (${activeCount}/${config.claudeMaxConcurrent})`
+      `claude concurrency limit reached (${activeCount}/${config.claudeMaxConcurrent})`,
     );
   }
 
@@ -284,10 +307,12 @@ export function runClaudeStream(
       promptChars: promptForStdin.length,
       systemChars: systemPrompt.length,
       home: opts.home,
-      session: session ? { uuid: session.uuid.slice(0, 8), resume: session.resume } : null,
+      session: session
+        ? { uuid: session.uuid.slice(0, 8), resume: session.resume }
+        : null,
       activeCount: activeCount + 1,
     },
-    "Spawning claude CLI"
+    "Spawning claude CLI",
   );
 
   activeCount++;
@@ -331,7 +356,7 @@ export function runClaudeStream(
       } catch (err) {
         logger.warn(
           { err: (err as Error).message, preview: line.slice(0, 200) },
-          "Failed to parse stream-json line"
+          "Failed to parse stream-json line",
         );
       }
     }
@@ -346,7 +371,10 @@ export function runClaudeStream(
   let killed = false;
   const timeoutTimer = setTimeout(() => {
     killed = true;
-    logger.warn({ cliModel, timeoutMs, elapsed: Date.now() - t0 }, "Claude CLI request timed out");
+    logger.warn(
+      { cliModel, timeoutMs, elapsed: Date.now() - t0 },
+      "Claude CLI request timed out",
+    );
     try {
       proc.kill("SIGTERM");
     } catch {
@@ -361,65 +389,67 @@ export function runClaudeStream(
     }, 5_000);
   }, timeoutMs);
 
-  const done = new Promise<{ exitCode: number | null; elapsedMs: number }>((resolve, reject) => {
-    proc.on("close", (code, signal) => {
-      clearTimeout(timeoutTimer);
-      activeCount--;
-      const elapsedMs = Date.now() - t0;
+  const done = new Promise<{ exitCode: number | null; elapsedMs: number }>(
+    (resolve, reject) => {
+      proc.on("close", (code, signal) => {
+        clearTimeout(timeoutTimer);
+        activeCount--;
+        const elapsedMs = Date.now() - t0;
 
-      // Flush any trailing line in the buffer.
-      const tail = stdoutBuffer.trim();
-      if (tail) {
-        try {
-          onEvent(JSON.parse(tail) as ClaudeStreamEvent);
-        } catch {
-          /* ignore */
+        // Flush any trailing line in the buffer.
+        const tail = stdoutBuffer.trim();
+        if (tail) {
+          try {
+            onEvent(JSON.parse(tail) as ClaudeStreamEvent);
+          } catch {
+            /* ignore */
+          }
+          stdoutBuffer = "";
         }
-        stdoutBuffer = "";
-      }
 
-      if (code === 0) {
-        logger.debug({ cliModel, elapsedMs }, "Claude CLI exited OK");
-        resolve({ exitCode: code, elapsedMs });
-        return;
-      }
+        if (code === 0) {
+          logger.debug({ cliModel, elapsedMs }, "Claude CLI exited OK");
+          resolve({ exitCode: code, elapsedMs });
+          return;
+        }
 
-      // Resume failures are often caused by a stale session — drop it so
-      // the next call creates a fresh one.
-      if (session?.resume && opts.conversationId) {
-        sessions.delete(opts.conversationId);
-      }
+        // Resume failures are often caused by a stale session — drop it so
+        // the next call creates a fresh one.
+        if (session?.resume && opts.conversationId) {
+          sessions.delete(opts.conversationId);
+        }
 
-      const msg = killed
-        ? `claude CLI timeout after ${timeoutMs}ms`
-        : stderrBuffer.trim().slice(0, 500) ||
-          `claude CLI exited with code=${code} signal=${signal ?? "none"}`;
-      logger.warn(
-        {
-          cliModel,
-          code,
-          signal,
-          elapsedMs,
-          errMsg: msg,
-          stderrRaw: stderrBuffer.slice(0, 2000),
-          stdoutTail: stdoutBuffer.slice(0, 2000),
-          recentEvents,
-          args,
-          promptChars: promptForStdin.length,
-          systemChars: systemPrompt.length,
-        },
-        "Claude CLI exited with error"
-      );
-      reject(new Error(msg));
-    });
+        const msg = killed
+          ? `claude CLI timeout after ${timeoutMs}ms`
+          : stderrBuffer.trim().slice(0, 500) ||
+            `claude CLI exited with code=${code} signal=${signal ?? "none"}`;
+        logger.warn(
+          {
+            cliModel,
+            code,
+            signal,
+            elapsedMs,
+            errMsg: msg,
+            stderrRaw: stderrBuffer.slice(0, 2000),
+            stdoutTail: stdoutBuffer.slice(0, 2000),
+            recentEvents,
+            args,
+            promptChars: promptForStdin.length,
+            systemChars: systemPrompt.length,
+          },
+          "Claude CLI exited with error",
+        );
+        reject(new Error(msg));
+      });
 
-    proc.on("error", (err) => {
-      clearTimeout(timeoutTimer);
-      activeCount--;
-      logger.error({ err: err.message }, "Failed to spawn claude CLI");
-      reject(err);
-    });
-  });
+      proc.on("error", (err) => {
+        clearTimeout(timeoutTimer);
+        activeCount--;
+        logger.error({ err: err.message }, "Failed to spawn claude CLI");
+        reject(err);
+      });
+    },
+  );
 
   return {
     done,
