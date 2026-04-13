@@ -172,7 +172,18 @@ function flattenMessages(messages: ClaudeMessage[]): {
 function latestUserMessage(messages: ClaudeMessage[]): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const m = messages[i]!;
-    if (m.role === "user") return m.content;
+    if (m.role === "user") {
+      if (typeof m.content === "string") {
+        return m.content;
+      }
+      if (Array.isArray(m.content)) {
+        return m.content
+          .filter((block: any) => block.type === "text" || typeof block === "string")
+          .map((block: any) => (typeof block === "string" ? block : block.text || ""))
+          .join("\n");
+      }
+      return JSON.stringify(m.content);
+    }
   }
   return "";
 }
